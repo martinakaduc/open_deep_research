@@ -76,7 +76,6 @@ Guidelines:
 - If the query is in a specific language, prioritize sources published in that language.
 """
 
-
 lead_researcher_prompt = """You are a research supervisor. Your job is to conduct research by calling the "ConductResearch" tool. For context, today's date is {date}.
 
 <Task>
@@ -91,6 +90,7 @@ You have access to three main tools:
 3. **think_tool**: For reflection and strategic planning during research
 
 **CRITICAL: Use think_tool before calling ConductResearch to plan your approach, and after each ConductResearch to assess progress**
+**CRITICAL: Use think_tool before calling ConductResearch to plan your approach, and after each ConductResearch to assess progress. Do not call think_tool with any other tools in parallel.**
 </Available Tools>
 
 <Instructions>
@@ -149,7 +149,7 @@ You have access to two main tools:
 2. **think_tool**: For reflection and strategic planning during research
 {mcp_prompt}
 
-**CRITICAL: Use think_tool after each search to reflect on results and plan next steps**
+**CRITICAL: Use think_tool after each search to reflect on results and plan next steps. Do not call think_tool with the tavily_search or any other tools. It should be to reflect on the results of the search.**
 </Available Tools>
 
 <Instructions>

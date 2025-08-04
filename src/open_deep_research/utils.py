@@ -205,7 +205,7 @@ async def summarize_webpage(model: BaseChatModel, webpage_content: str) -> str:
         
     except asyncio.TimeoutError:
         # Timeout during summarization - return original content
-        logging.warning(f"Summarization timed out after 60 seconds, returning original content")
+        logging.warning("Summarization timed out after 60 seconds, returning original content")
         return webpage_content
     except Exception as e:
         # Other errors during summarization - log and return original content

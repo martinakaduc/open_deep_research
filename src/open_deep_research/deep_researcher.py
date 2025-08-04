@@ -471,30 +471,7 @@ async def researcher_tools(state: ResearcherState, config: RunnableConfig) -> Co
     if not has_tool_calls and not has_native_search:
         return Command(goto="compress_research")
     
-    # Step 2: Handle think_tool calls separately (strategic reflection)
-    think_tool_calls = [
-        tool_call for tool_call in most_recent_message.tool_calls 
-        if tool_call["name"] == "think_tool"
-    ]
-    
-    if think_tool_calls:
-        # Process think_tool calls by creating tool messages with reflections
-        think_tool_messages = []
-        for tool_call in think_tool_calls:
-            reflection_content = tool_call["args"]["reflection"]
-            think_tool_messages.append(ToolMessage(
-                content=f"Reflection recorded: {reflection_content}",
-                name="think_tool",
-                tool_call_id=tool_call["id"]
-            ))
-        
-        # Continue research loop with think_tool results
-        return Command(
-            goto="researcher",
-            update={"researcher_messages": think_tool_messages}
-        )
-    
-    # Step 3: Handle other tool calls (search, MCP tools, etc.)
+    # Step 2: Handle other tool calls (search, MCP tools, etc.)
     tools = await get_all_tools(config)
     tools_by_name = {
         tool.name if hasattr(tool, "name") else tool.get("name", "web_search"): tool 
@@ -519,7 +496,7 @@ async def researcher_tools(state: ResearcherState, config: RunnableConfig) -> Co
         for observation, tool_call in zip(observations, tool_calls)
     ]
     
-    # Step 4: Check late exit conditions (after processing tools)
+    # Step 3: Check late exit conditions (after processing tools)
     exceeded_iterations = state.get("tool_call_iterations", 0) >= configurable.max_react_tool_calls
     research_complete_called = any(
         tool_call["name"] == "ResearchComplete" 
