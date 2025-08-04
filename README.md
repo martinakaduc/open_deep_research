@@ -71,7 +71,7 @@ Extensive configuration options to customize research behavior. Configure via we
 Open Deep Research uses multiple specialized models for different research tasks:
 
 - **Summarization Model** (default: `openai:gpt-4.1-mini`): Summarizes research results from search APIs
-- **Research Model** (default: `anthropic:claude-sonnet-4-20250514`): Conducts research and analysis 
+- **Research Model** (default: `openai:gpt-4.1`): Conducts research and analysis 
 - **Compression Model** (default: `openai:gpt-4.1`): Compresses research findings from sub-agents
 - **Final Report Model** (default: `openai:gpt-4.1`): Writes the final comprehensive report
 
@@ -152,7 +152,7 @@ To submit results to the benchmark:
 
 > **Note:** We submitted results from [this commit](https://github.com/langchain-ai/open_deep_research/commit/c0a160b57a9b5ecd4b8217c3811a14d8eff97f72) to the Deep Research Bench, resulting in an overall score of 0.4344 (#6 on the leaderboard).
 
-Results for current `main` branch utilize more constrained prompting to reduce token spend ~4x while still achieving a score of 0.4223. 
+Results for current `main` branch utilize more constrained prompting to reduce token spend ~4x while still achieving a score of 0.4268. 
 
 #### **Current Results (Main Branch)**
 
