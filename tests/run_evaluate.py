@@ -66,7 +66,7 @@ async def main():
         target,
         data=dataset_name,
         evaluators=evaluators,
-        experiment_prefix=f"ODR GPT-4.1, Tavily Search, Prompt + Tool Updates #",
+        experiment_prefix=f"ODR GPT-4.1, Tavily Search, Prompt + Tool Updates, Think Tool Fix",
         max_concurrency=10,
         metadata={
             "max_structured_output_retries": max_structured_output_retries,

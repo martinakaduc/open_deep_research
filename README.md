@@ -154,14 +154,15 @@ To submit results to the benchmark:
 
 Results for current `main` branch utilize more constrained prompting to reduce token spend ~4x while still achieving a score of 0.4223. 
 
-```
-=== Evaluation Results Summary ===
-INFO:__main__:Comprehensiveness:      0.4117
-INFO:__main__:Insight:                0.3755
-INFO:__main__:Instruction Following:  0.4770
-INFO:__main__:Readability:            0.4458
-INFO:__main__:Overall Score:          0.4223
-```
+#### **Current Results (Main Branch)**
+
+| Metric | Score |
+|--------|-------|
+| Comprehensiveness | 0.4145 |
+| Insight | 0.3854 |
+| Instruction Following | 0.4780 |
+| Readability | 0.4495 |
+| **Overall Score** | **0.4268** |
 
 ### 🚀 Deployments and Usage
 
