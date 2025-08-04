@@ -71,7 +71,7 @@ Extensive configuration options to customize research behavior. Configure via we
 Open Deep Research uses multiple specialized models for different research tasks:
 
 - **Summarization Model** (default: `openai:gpt-4.1-mini`): Summarizes research results from search APIs
-- **Research Model** (default: `anthropic:claude-sonnet-4-20250514`): Conducts research and analysis 
+- **Research Model** (default: `openai:gpt-4.1`): Conducts research and analysis 
 - **Compression Model** (default: `openai:gpt-4.1`): Compresses research findings from sub-agents
 - **Final Report Model** (default: `openai:gpt-4.1`): Writes the final comprehensive report
 
