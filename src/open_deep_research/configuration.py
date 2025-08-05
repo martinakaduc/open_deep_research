@@ -96,7 +96,7 @@ class Configuration(BaseModel):
         metadata={
             "x_oap_ui_config": {
                 "type": "slider",
-                "default": 3,
+                "default": 6,
                 "min": 1,
                 "max": 10,
                 "step": 1,
@@ -109,7 +109,7 @@ class Configuration(BaseModel):
         metadata={
             "x_oap_ui_config": {
                 "type": "slider",
-                "default": 5,
+                "default": 10,
                 "min": 1,
                 "max": 30,
                 "step": 1,

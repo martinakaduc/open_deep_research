@@ -243,7 +243,7 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig) -> Co
     most_recent_message = supervisor_messages[-1]
     
     # Define exit criteria for research phase
-    exceeded_allowed_iterations = research_iterations >= configurable.max_researcher_iterations
+    exceeded_allowed_iterations = research_iterations > configurable.max_researcher_iterations
     no_tool_calls = not most_recent_message.tool_calls
     research_complete_tool_call = any(
         tool_call["name"] == "ResearchComplete" 
