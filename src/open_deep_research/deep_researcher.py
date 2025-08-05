@@ -260,101 +260,92 @@ async def supervisor_tools(state: SupervisorState, config: RunnableConfig) -> Co
             }
         )
     
-    # Step 2: Handle think_tool calls (strategic reflection)
+    # Step 2: Process all tool calls together (both think_tool and ConductResearch)
+    all_tool_messages = []
+    update_payload = {"supervisor_messages": []}
+    
+    # Handle think_tool calls (strategic reflection)
     think_tool_calls = [
         tool_call for tool_call in most_recent_message.tool_calls 
         if tool_call["name"] == "think_tool"
     ]
     
-    if think_tool_calls:
-        # Process think_tool calls by creating tool messages with reflections
-        think_tool_messages = []
-        for tool_call in think_tool_calls:
-            reflection_content = tool_call["args"]["reflection"]
-            think_tool_messages.append(ToolMessage(
-                content=f"Reflection recorded: {reflection_content}",
-                name="think_tool",
-                tool_call_id=tool_call["id"]
-            ))
-        
-        # Continue supervision loop with think_tool results
-        return Command(
-            goto="supervisor",
-            update={"supervisor_messages": think_tool_messages}
-        )
+    for tool_call in think_tool_calls:
+        reflection_content = tool_call["args"]["reflection"]
+        all_tool_messages.append(ToolMessage(
+            content=f"Reflection recorded: {reflection_content}",
+            name="think_tool",
+            tool_call_id=tool_call["id"]
+        ))
     
-    # Step 3: Handle ConductResearch calls (research delegation)
-    try:
-        all_conduct_research_calls = [
-            tool_call for tool_call in most_recent_message.tool_calls 
-            if tool_call["name"] == "ConductResearch"
-        ]
-        
-        # Limit concurrent research units to prevent resource exhaustion
-        conduct_research_calls = all_conduct_research_calls[:configurable.max_concurrent_research_units]
-        overflow_conduct_research_calls = all_conduct_research_calls[configurable.max_concurrent_research_units:]
-        
-        # Execute research tasks in parallel
-        research_tasks = [
-            researcher_subgraph.ainvoke({
-                "researcher_messages": [
-                    HumanMessage(content=tool_call["args"]["research_topic"])
-                ],
-                "research_topic": tool_call["args"]["research_topic"]
-            }, config) 
-            for tool_call in conduct_research_calls
-        ]
-        
-        tool_results = await asyncio.gather(*research_tasks)
-        
-        # Create tool messages with research results
-        tool_messages = [
-            ToolMessage(
-                content=observation.get("compressed_research", "Error synthesizing research report: Maximum retries exceeded"),
-                name=tool_call["name"],
-                tool_call_id=tool_call["id"]
-            ) 
-            for observation, tool_call in zip(tool_results, conduct_research_calls)
-        ]
-        
-        # Handle overflow research calls with error messages
-        for overflow_call in overflow_conduct_research_calls:
-            tool_messages.append(ToolMessage(
-                content=f"Error: Did not run this research as you have already exceeded the maximum number of concurrent research units. Please try again with {configurable.max_concurrent_research_units} or fewer research units.",
-                name="ConductResearch",
-                tool_call_id=overflow_call["id"]
-            ))
-        
-        # Aggregate raw notes from all research results
-        raw_notes_concat = "\n".join([
-            "\n".join(observation.get("raw_notes", [])) 
-            for observation in tool_results
-        ])
-        
-        return Command(
-            goto="supervisor",
-            update={
-                "supervisor_messages": tool_messages,
-                "raw_notes": [raw_notes_concat]
-            }
-        )
-        
-    except Exception as e:
-        # Handle research execution errors
-        if is_token_limit_exceeded(e, configurable.research_model):
-            # Token limit exceeded - end research phase
-            pass
-        else:
-            # Other error - end research phase
-            pass
+    # Handle ConductResearch calls (research delegation)
+    conduct_research_calls = [
+        tool_call for tool_call in most_recent_message.tool_calls 
+        if tool_call["name"] == "ConductResearch"
+    ]
+    
+    if conduct_research_calls:
+        try:
+            # Limit concurrent research units to prevent resource exhaustion
+            allowed_conduct_research_calls = conduct_research_calls[:configurable.max_concurrent_research_units]
+            overflow_conduct_research_calls = conduct_research_calls[configurable.max_concurrent_research_units:]
             
-        return Command(
-            goto=END,
-            update={
-                "notes": get_notes_from_tool_calls(supervisor_messages),
-                "research_brief": state.get("research_brief", "")
-            }
-        )
+            # Execute research tasks in parallel
+            research_tasks = [
+                researcher_subgraph.ainvoke({
+                    "researcher_messages": [
+                        HumanMessage(content=tool_call["args"]["research_topic"])
+                    ],
+                    "research_topic": tool_call["args"]["research_topic"]
+                }, config) 
+                for tool_call in allowed_conduct_research_calls
+            ]
+            
+            tool_results = await asyncio.gather(*research_tasks)
+            
+            # Create tool messages with research results
+            for observation, tool_call in zip(tool_results, allowed_conduct_research_calls):
+                all_tool_messages.append(ToolMessage(
+                    content=observation.get("compressed_research", "Error synthesizing research report: Maximum retries exceeded"),
+                    name=tool_call["name"],
+                    tool_call_id=tool_call["id"]
+                ))
+            
+            # Handle overflow research calls with error messages
+            for overflow_call in overflow_conduct_research_calls:
+                all_tool_messages.append(ToolMessage(
+                    content=f"Error: Did not run this research as you have already exceeded the maximum number of concurrent research units. Please try again with {configurable.max_concurrent_research_units} or fewer research units.",
+                    name="ConductResearch",
+                    tool_call_id=overflow_call["id"]
+                ))
+            
+            # Aggregate raw notes from all research results
+            raw_notes_concat = "\n".join([
+                "\n".join(observation.get("raw_notes", [])) 
+                for observation in tool_results
+            ])
+            
+            if raw_notes_concat:
+                update_payload["raw_notes"] = [raw_notes_concat]
+                
+        except Exception as e:
+            # Handle research execution errors
+            if is_token_limit_exceeded(e, configurable.research_model) or True:
+                # Token limit exceeded or other error - end research phase
+                return Command(
+                    goto=END,
+                    update={
+                        "notes": get_notes_from_tool_calls(supervisor_messages),
+                        "research_brief": state.get("research_brief", "")
+                    }
+                )
+    
+    # Step 3: Return command with all tool results
+    update_payload["supervisor_messages"] = all_tool_messages
+    return Command(
+        goto="supervisor",
+        update=update_payload
+    ) 
 
 # Supervisor Subgraph Construction
 # Creates the supervisor workflow that manages research delegation and coordination
