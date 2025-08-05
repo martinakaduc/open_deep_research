@@ -89,7 +89,6 @@ You have access to three main tools:
 2. **ResearchComplete**: Indicate that research is complete
 3. **think_tool**: For reflection and strategic planning during research
 
-**CRITICAL: Use think_tool before calling ConductResearch to plan your approach, and after each ConductResearch to assess progress**
 **CRITICAL: Use think_tool before calling ConductResearch to plan your approach, and after each ConductResearch to assess progress. Do not call think_tool with any other tools in parallel.**
 </Available Tools>
 
