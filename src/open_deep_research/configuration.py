@@ -92,7 +92,7 @@ class Configuration(BaseModel):
         }
     )
     max_researcher_iterations: int = Field(
-        default=3,
+        default=6,
         metadata={
             "x_oap_ui_config": {
                 "type": "slider",
