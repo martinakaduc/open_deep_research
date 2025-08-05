@@ -156,7 +156,8 @@ async def write_research_brief(state: AgentState, config: RunnableConfig) -> Com
     # Step 3: Initialize supervisor with research brief and instructions
     supervisor_system_prompt = lead_researcher_prompt.format(
         date=get_today_str(),
-        max_concurrent_research_units=configurable.max_concurrent_research_units
+        max_concurrent_research_units=configurable.max_concurrent_research_units,
+        max_researcher_iterations=configurable.max_researcher_iterations
     )
     
     return Command(

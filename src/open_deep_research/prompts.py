@@ -104,7 +104,7 @@ Think like a research manager with limited time and resources. Follow these step
 **Task Delegation Budgets** (Prevent excessive delegation):
 - **Bias towards single agent** - Use single agent for simplicity unless the user request has clear opportunity for parallelization
 - **Stop when you can answer confidently** - Don't keep delegating research for perfection
-- **Limit tool calls** - Always stop after 3 tool calls to ConductResearch if you cannot find the right sources
+- **Limit tool calls** - Always stop after {max_researcher_iterations} tool calls to ConductResearch and think_tool if you cannot find the right sources
 
 **Maximum {max_concurrent_research_units} parallel agents per iteration**
 </Hard Limits>
