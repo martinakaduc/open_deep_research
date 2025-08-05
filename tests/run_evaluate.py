@@ -18,7 +18,7 @@ max_structured_output_retries = 3
 allow_clarification = False
 max_concurrent_research_units = 10
 search_api = "tavily" # NOTE: We use Tavily to stay consistent
-max_researcher_iterations = 5
+max_researcher_iterations = 6
 max_react_tool_calls = 10
 summarization_model = "openai:gpt-4.1-mini"
 summarization_model_max_tokens = 8192
@@ -65,7 +65,7 @@ async def main():
         target,
         data=dataset_name,
         evaluators=evaluators,
-        experiment_prefix=f"ODR GPT-4.1, Tavily Search",
+        experiment_prefix=f"ODR GPT-4.1, Tavily Search, Fix Max Supervisor Iterations",
         max_concurrency=10,
         metadata={
             "max_structured_output_retries": max_structured_output_retries,
