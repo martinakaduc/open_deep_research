@@ -22,13 +22,12 @@ max_researcher_iterations = 5
 max_react_tool_calls = 10
 summarization_model = "openai:gpt-4.1-mini"
 summarization_model_max_tokens = 8192
-research_model = "anthropic:claude-sonnet-4-20250514"
+research_model = "openai:gpt-4.1" # "anthropic:claude-sonnet-4-20250514"
 research_model_max_tokens = 10000
 compression_model = "openai:gpt-4.1"
 compression_model_max_tokens = 10000
 final_report_model = "openai:gpt-4.1"
 final_report_model_max_tokens = 10000
-
 
 async def target(
     inputs: dict,
@@ -66,7 +65,7 @@ async def main():
         target,
         data=dataset_name,
         evaluators=evaluators,
-        experiment_prefix=f"ODR Claude Sonnet 4, Tavily Search",
+        experiment_prefix=f"ODR GPT-4.1, Tavily Search",
         max_concurrency=10,
         metadata={
             "max_structured_output_retries": max_structured_output_retries,
