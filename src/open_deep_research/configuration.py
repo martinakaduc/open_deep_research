@@ -105,7 +105,7 @@ class Configuration(BaseModel):
         }
     )
     max_react_tool_calls: int = Field(
-        default=5,
+        default=10,
         metadata={
             "x_oap_ui_config": {
                 "type": "slider",
