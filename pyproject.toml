@@ -43,6 +43,7 @@ dependencies = [
     "supabase>=2.15.3",
     "mcp>=1.9.4",
     "pandas>=2.3.1",
+    "matplotlib>=3.10.5",
 ]
 
 [project.optional-dependencies]
