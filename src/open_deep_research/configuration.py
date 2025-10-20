@@ -138,6 +138,26 @@ class Configuration(BaseModel):
             }
         }
     )
+    summarization_model_provider: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Model provider for the summarization model (e.g., 'openai', 'anthropic'). Leave empty to use default."
+            }
+        }
+    )
+    summarization_model_base_url: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Base URL for the summarization model API. Leave empty to use default."
+            }
+        }
+    )
     max_content_length: int = Field(
         default=50000,
         metadata={
@@ -170,6 +190,26 @@ class Configuration(BaseModel):
             }
         }
     )
+    research_model_provider: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Model provider for the research model (e.g., 'openai', 'anthropic'). Leave empty to use default."
+            }
+        }
+    )
+    research_model_base_url: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Base URL for the research model API. Leave empty to use default."
+            }
+        }
+    )
     compression_model: str = Field(
         default="openai:gpt-4.1",
         metadata={
@@ -190,6 +230,26 @@ class Configuration(BaseModel):
             }
         }
     )
+    compression_model_provider: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Model provider for the compression model (e.g., 'openai', 'anthropic'). Leave empty to use default."
+            }
+        }
+    )
+    compression_model_base_url: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Base URL for the compression model API. Leave empty to use default."
+            }
+        }
+    )
     final_report_model: str = Field(
         default="openai:gpt-4.1",
         metadata={
@@ -207,6 +267,26 @@ class Configuration(BaseModel):
                 "type": "number",
                 "default": 10000,
                 "description": "Maximum output tokens for final report model"
+            }
+        }
+    )
+    final_report_model_provider: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Model provider for the final report model (e.g., 'openai', 'anthropic'). Leave empty to use default."
+            }
+        }
+    )
+    final_report_model_base_url: Optional[str] = Field(
+        default=None,
+        optional=True,
+        metadata={
+            "x_oap_ui_config": {
+                "type": "text",
+                "description": "Base URL for the final report model API. Leave empty to use default."
             }
         }
     )

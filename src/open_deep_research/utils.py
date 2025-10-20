@@ -85,6 +85,8 @@ async def tavily_search(
     model_api_key = get_api_key_for_model(configurable.summarization_model, config)
     summarization_model = init_chat_model(
         model=configurable.summarization_model,
+        model_provider=configurable.summarization_model_provider,
+        base_url=configurable.summarization_model_base_url,
         max_tokens=configurable.summarization_model_max_tokens,
         api_key=model_api_key,
         tags=["langsmith:nostream"]
@@ -684,6 +686,8 @@ def is_token_limit_exceeded(exception: Exception, model_name: str = None) -> boo
             provider = 'anthropic'
         elif model_str.startswith('gemini:') or model_str.startswith('google:'):
             provider = 'gemini'
+        elif model_str.startswith('vllm:'):
+            provider = 'vllm'
     
     # Step 2: Check provider-specific token limit patterns
     if provider == 'openai':
@@ -692,6 +696,9 @@ def is_token_limit_exceeded(exception: Exception, model_name: str = None) -> boo
         return _check_anthropic_token_limit(exception, error_str)
     elif provider == 'gemini':
         return _check_gemini_token_limit(exception, error_str)
+    elif provider == 'vllm':
+        # VLLM-specific token limit checks can be added here
+        return False  # Placeholder for VLLM checks
     
     # Step 3: If provider unknown, check all providers
     return (
@@ -786,6 +793,9 @@ def _check_gemini_token_limit(exception: Exception, error_str: str) -> bool:
 
 # NOTE: This may be out of date or not applicable to your models. Please update this as needed.
 MODEL_TOKEN_LIMITS = {
+    "vllm:llama-3.1-8b-instruct": 128000,
+    "vllm:qwen-2.5-omni-7b": 128000,
+    "vllm:granite-3.1-8b-instruct": 128000,
     "openai:gpt-4.1-mini": 1047576,
     "openai:gpt-4.1-nano": 1047576,
     "openai:gpt-4.1": 1047576,
