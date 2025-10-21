@@ -313,61 +313,6 @@ class VLLMMiddleware:
             logger.debug(f"Response status: {response.status_code}")
             logger.debug(f"Response headers: {response.headers}")
 
-            # If stream=True, return the response immediately for streaming
-            # if stream:
-            #     logger.info(
-            #         f"Streaming request {request_id} - returning response immediately"
-            #     )
-            #     record.response = None
-
-            #     async def stream_generator():
-            #         async for chunk in response.aiter_bytes():
-            #             lines = chunk.decode("utf-8").split("\n\n")
-            #             for line in lines:
-            #                 if not line:
-            #                     continue
-            #                 if line.startswith("data: "):
-            #                     data = line[len("data: ") :]
-            #                     if data.strip() == "[DONE]":
-            #                         break
-            #                     try:
-            #                         event = json.loads(data)
-            #                         delta = event.get("choices", [{}])[0].get(
-            #                             "delta", {}
-            #                         )
-            #                         content_piece = delta.get("content")
-            #                         if content_piece:
-            #                             # Append to record and stream out
-            #                             if record.response is None:
-            #                                 record.response = event
-            #                             else:
-            #                                 record.response["choices"][0]["delta"][
-            #                                     "content"
-            #                                 ] += content_piece
-            #                                 record.response["finish_reason"] = event[
-            #                                     "choices"
-            #                                 ][0].get("finish_reason", None)
-            #                                 record.response["stop_reason"] = event[
-            #                                     "choices"
-            #                                 ][0].get("stop_reason", None)
-
-            #                     except json.JSONDecodeError:
-            #                         # pass through raw data line (rarely happens)
-            #                         raise ValueError(
-            #                             f"Failed to parse SSE data: {data[:100]}"
-            #                         )
-
-            #             yield chunk
-
-            #     record.latency_ms = (time.time() - start_time) * 1000
-            #     record.metadata["streaming"] = True
-            #     self._write_log(record)
-
-            #     return StreamingResponse(
-            #         stream_generator(),
-            #         media_type="text/event-stream",  # SSE stream for OpenAI/vLLM
-            #     )
-
             # Parse response with better error handling (non-streaming)
             try:
                 # Check if response is in SSE (Server-Sent Events) format
@@ -483,61 +428,6 @@ class VLLMMiddleware:
                 headers={"Content-Type": "application/json"},
             )
             response.raise_for_status()
-
-            # If stream=True, return the response immediately for streaming
-            # if stream:
-            #     logger.info(
-            #         f"Streaming request {request_id} - returning response immediately"
-            #     )
-            #     record.response = None
-
-            #     async def stream_generator():
-            #         async for chunk in response.aiter_bytes():
-            #             lines = chunk.decode("utf-8").split("\n\n")
-            #             for line in lines:
-            #                 if not line:
-            #                     continue
-            #                 if line.startswith("data: "):
-            #                     data = line[len("data: ") :]
-            #                     if data.strip() == "[DONE]":
-            #                         break
-            #                     try:
-            #                         event = json.loads(data)
-            #                         delta = event.get("choices", [{}])[0].get(
-            #                             "delta", {}
-            #                         )
-            #                         content_piece = delta.get("content")
-            #                         if content_piece:
-            #                             # Append to record and stream out
-            #                             if record.response is None:
-            #                                 record.response = event
-            #                             else:
-            #                                 record.response["choices"][0]["delta"][
-            #                                     "content"
-            #                                 ] += content_piece
-            #                                 record.response["finish_reason"] = event[
-            #                                     "choices"
-            #                                 ][0].get("finish_reason", None)
-            #                                 record.response["stop_reason"] = event[
-            #                                     "choices"
-            #                                 ][0].get("stop_reason", None)
-
-            #                     except json.JSONDecodeError:
-            #                         # pass through raw data line (rarely happens)
-            #                         raise ValueError(
-            #                             f"Failed to parse SSE data: {data[:100]}"
-            #                         )
-
-            #             yield chunk
-
-            #     record.latency_ms = (time.time() - start_time) * 1000
-            #     record.metadata["streaming"] = True
-            #     self._write_log(record)
-
-            #     return StreamingResponse(
-            #         stream_generator(),
-            #         media_type="text/event-stream",  # SSE stream for OpenAI/vLLM
-            #     )
 
             # Parse response with better error handling
             try:
