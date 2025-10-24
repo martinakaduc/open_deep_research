@@ -6,6 +6,8 @@ import subprocess
 import logging
 from typing import Any, Dict
 
+logging.basicConfig(level=logging.INFO)
+
 
 def run_server(cmd_string):
     try:
@@ -26,7 +28,6 @@ def kill(proc_pid):
 def shutdown_server(process):
     try:
         kill(process.pid)
-        # process.terminate()
         print("Server shutdown successfully.")
     except Exception as e:
         print(f"Error shutting down server: {e}")
@@ -38,7 +39,6 @@ def get_model_configs(model_path: str):
             "model_name": "vllm:qwen-2.5-omni-7b",
             "max_model_len": 32768,
             "tensor_parallel_size": 1,
-            "enable_auto_tool_choice": True,
             "tool_call_parser": "hermes",
         }
     else:
@@ -69,12 +69,13 @@ def initialize_servers(
     middleware_port: int,
     deeprs_port: int,
     deeprs_framework: str = "open_deep_research",
-    middleware_workers: int = 2,
+    middleware_workers: int = 1,
 ) -> Dict[str, Any]:
     model_configs = get_model_configs(model_path)
 
     # Start vLLM Server
     logging.info("Starting vLLM server...")
+    vllm_pid = None
     vllm_pid = run_server(
         (
             f"vllm serve {model_path} "
@@ -82,7 +83,7 @@ def initialize_servers(
             f"--port {vllm_port} "
             f"--max-model-len {model_configs['max_model_len']} "
             f"--tensor-parallel-size {model_configs['tensor_parallel_size']} "
-            f"--enable-auto-tool-choice {model_configs['enable_auto_tool_choice']} "
+            f"--enable-auto-tool-choice "
             f"--tool-call-parser {model_configs['tool_call_parser']} &"
         )
     )
@@ -107,6 +108,7 @@ def initialize_servers(
     if deeprs_framework == "open_deep_research":
         deeprs_pid = run_server(
             (
+                "cd .. && "
                 f'SUMMARIZATION_MODEL="{model_configs['model_name']}" '
                 f'RESEARCH_MODEL="{model_configs['model_name']}" '
                 f'COMPRESSION_MODEL="{model_configs['model_name']}" '
@@ -119,7 +121,7 @@ def initialize_servers(
                 f'COMPRESSION_MODEL_PROVIDER="openai" '
                 f'FINAL_REPORT_MODEL_BASE_URL="http://localhost:{middleware_port}/v1" '
                 f'FINAL_REPORT_MODEL_PROVIDER="openai" '
-                f'uvx --refresh --from "langgraph-cli[inmem]" --with-editable ../../ --python 3.11 langgraph dev --allow-blocking &'
+                f'uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --allow-blocking &'
             )
         )
     else:
@@ -135,9 +137,9 @@ def initialize_servers(
 
 
 def terminate_servers(pids: Dict[str, Any]):
-    shutdown_server(pids["middleware_pid"])
-    shutdown_server(pids["vllm_pid"])
-    shutdown_server(pids["deeprs_pid"])
+    for server_name, pid in pids.items():
+        logging.info(f"Terminating {server_name} server...")
+        shutdown_server(pid)
 
 
 def get_clients(
@@ -147,6 +149,7 @@ def get_clients(
 
     openai_client = OpenAI(
         base_url=f"http://localhost:{vllm_port}/v1",
+        api_key="abcd1234",  # Dummy key since no auth is needed
     )
 
     if deeprs_framework == "open_deep_research":
@@ -159,9 +162,9 @@ def get_clients(
     return openai_client, deeprs_client
 
 
-async def generate_research_questions(client, topic: str):
+async def generate_research_questions(client, model_name, topic: str):
     output = client.chat.completions.create(
-        model="gpt-5",
+        model=model_name,
         messages=[
             {
                 "role": "user",
@@ -194,8 +197,14 @@ async def perform_deep_research(
         ):
             json_data = chunk.data
             if "final_report_generation" in json_data:
-                final_report = json_data["final_report_generation"]["report"]
-                print("Final Report:", final_report)
+                final_report = json_data["final_report_generation"]["final_report"]
+                logging.info("=" * 20)
+                logging.info(
+                    f"Starting deep research for question: {research_question}"
+                )
+                logging.info("-" * 20)
+                logging.info("Final Report:", final_report)
+                logging.info("=" * 20)
                 return final_report
     else:
         raise ValueError(f"Unsupported Deep Researcher framework: {deeprs_framework}")

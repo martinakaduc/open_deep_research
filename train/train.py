@@ -6,13 +6,17 @@ from utils import (
     initialize_servers,
     terminate_servers,
     get_clients,
+    get_model_configs,
     generate_research_questions,
     perform_deep_research,
 )
 
+logging.basicConfig(level=logging.INFO)
+
 
 async def collect_data(
     vllm_client,
+    model_name,
     deeprs_client,
     deeprs_framework="open_deep_research",
     n_question_per_topic=1,
@@ -21,7 +25,7 @@ async def collect_data(
     for topic in ["liger animal", "tiger habitat", "lion behavior"]:
         for _ in range(n_question_per_topic):
             research_question = await generate_research_questions(
-                vllm_client, topic=topic
+                vllm_client, topic=topic, model_name=model_name
             )
             final_report = await perform_deep_research(
                 deeprs_framework=deeprs_framework,
@@ -48,17 +52,19 @@ def main(args):
         deeprs_port=args.deeprs_port,
         deeprs_framework=args.deeprs_framework,
     )
+    model_configs = get_model_configs(args.model_path)
 
     # Collect Data
     logging.info("Starting data collection...")
-    final_reports = asyncio.run(
-        collect_data(
-            vllm_client=vllm_client,
-            deeprs_client=deeprs_client,
-            deeprs_framework=args.deeprs_framework,
-            n_question_per_topic=args.n_question_per_topic,
-        )
-    )
+    # final_reports = asyncio.run(
+    #     collect_data(
+    #         vllm_client=vllm_client,
+    #         model_name=model_configs["model_name"],
+    #         deeprs_client=deeprs_client,
+    #         deeprs_framework=args.deeprs_framework,
+    #         n_question_per_topic=args.n_question_per_topic,
+    #     )
+    # )
 
     # Terminate Servers
     terminate_servers(server_pids)
@@ -67,9 +73,17 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, help="Path to the model file")
-    parser.add_argument("--vllm_port", type=int, help="Port for the vLLM server")
     parser.add_argument(
-        "--middleware_port", type=int, help="Port for the middleware server"
+        "--vllm_port",
+        type=int,
+        default=8081,
+        help="Port for the vLLM server",
+    )
+    parser.add_argument(
+        "--middleware_port",
+        type=int,
+        default=8082,
+        help="Port for the middleware server",
     )
     parser.add_argument(
         "--deeprs_port",
