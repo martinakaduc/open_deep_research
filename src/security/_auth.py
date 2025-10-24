@@ -1,5 +1,16 @@
+import os
+import asyncio
 from langgraph_sdk import Auth
 from langgraph_sdk.auth.types import StudioUser
+from supabase import create_client, Client
+from typing import Optional, Any
+
+supabase_url = os.environ.get("SUPABASE_URL")
+supabase_key = os.environ.get("SUPABASE_KEY")
+supabase: Optional[Client] = None
+
+if supabase_url and supabase_key:
+    supabase = create_client(supabase_url, supabase_key)
 
 # The "Auth" object is a container that LangGraph will use to mark our authentication function
 auth = Auth()
@@ -9,10 +20,54 @@ auth = Auth()
 # for every request. This will determine whether the request is allowed or not
 @auth.authenticate
 async def get_current_user(authorization: str | None) -> Auth.types.MinimalUserDict:
-    # Return user info if valid
-    return {
-        "identity": "deeprs-agent",
-    }
+    """Check if the user's JWT token is valid using Supabase."""
+
+    # Ensure we have authorization header
+    if not authorization:
+        raise Auth.exceptions.HTTPException(
+            status_code=401, detail="Authorization header missing"
+        )
+
+    # Parse the authorization header
+    try:
+        scheme, token = authorization.split()
+        assert scheme.lower() == "bearer"
+    except (ValueError, AssertionError):
+        raise Auth.exceptions.HTTPException(
+            status_code=401, detail="Invalid authorization header format"
+        )
+
+    # Ensure Supabase client is initialized
+    if not supabase:
+        raise Auth.exceptions.HTTPException(
+            status_code=500, detail="Supabase client not initialized"
+        )
+
+    try:
+        # Verify the JWT token with Supabase using asyncio.to_thread to avoid blocking
+        # This will decode and verify the JWT token in a separate thread
+        async def verify_token() -> dict[str, Any]:
+            response = await asyncio.to_thread(supabase.auth.get_user, token)
+            return response
+
+        response = await verify_token()
+        user = response.user
+
+        if not user:
+            raise Auth.exceptions.HTTPException(
+                status_code=401, detail="Invalid token or user not found"
+            )
+
+        # Return user info if valid
+        return {
+            "identity": user.id,
+        }
+    except Exception as e:
+        # Handle any errors from Supabase
+        raise Auth.exceptions.HTTPException(
+            status_code=401, detail=f"Authentication error: {str(e)}"
+        )
+
 
 @auth.on.threads.create
 @auth.on.threads.create_run
