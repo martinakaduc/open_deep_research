@@ -207,7 +207,7 @@ async def get_response_from_llm(
     new_msg_history = msg_history + [{"role": "user", "content": msg}]
     for attempt in range(retry):
         try:
-            completion = client.chat.completions.create(
+            completion = client.chat.completions.parse(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_message},

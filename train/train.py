@@ -32,6 +32,7 @@ async def collect_data(
 ):
     base_dir = "data/topics/{topic}"
     result_dir = f"data/round_{round_idx}"
+    os.makedirs(result_dir, exist_ok=True)
     n_questions_per_topic = n_questions // len(topics)
 
     ideas = []
@@ -64,7 +65,7 @@ async def collect_data(
         if not skip_novelty_check:
             topic_ideas = await check_idea_novelty(
                 ideas=topic_ideas,
-                base_dir=base_dir,
+                base_dir=topic_base_dir,
                 result_dir=result_dir,
                 client=vllm_client,
                 model=model_name,
@@ -76,9 +77,7 @@ async def collect_data(
 
     final_reports = []
     for idea in ideas:
-        research_question = await generate_research_questions(
-            vllm_client, topic=idea, model_name=model_name
-        )
+        research_question = idea["question"]
         final_report = await perform_deep_research(
             deeprs_framework=deeprs_framework,
             deeprs_client=deeprs_client,
