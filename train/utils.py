@@ -1,10 +1,12 @@
-import os
+import re
+import json
 import time
 import psutil
 import requests
 import subprocess
 import logging
 from typing import Any, Dict
+from openai._types import NOT_GIVEN
 
 logging.basicConfig(level=logging.INFO)
 
@@ -142,6 +144,34 @@ def terminate_servers(pids: Dict[str, Any]):
         shutdown_server(pid)
 
 
+def extract_json_between_markers(llm_output):
+    # Regular expression pattern to find JSON content between ```json and ```
+    json_pattern = r"```json(.*?)```"
+    matches = re.findall(json_pattern, llm_output, re.DOTALL)
+
+    if not matches:
+        # Fallback: Try to find any JSON-like content in the output
+        json_pattern = r"\{.*?\}"
+        matches = re.findall(json_pattern, llm_output, re.DOTALL)
+
+    for json_string in matches:
+        json_string = json_string.strip()
+        try:
+            parsed_json = json.loads(json_string)
+            return parsed_json
+        except json.JSONDecodeError:
+            # Attempt to fix common JSON issues
+            try:
+                # Remove invalid control characters
+                json_string_clean = re.sub(r"[\x00-\x1F\x7F]", "", json_string)
+                parsed_json = json.loads(json_string_clean)
+                return parsed_json
+            except json.JSONDecodeError:
+                continue  # Try next match
+
+    return None  # No valid JSON found
+
+
 def get_clients(
     vllm_port: int, deeprs_port: int, deeprs_framework: str = "open_deep_research"
 ):
@@ -160,6 +190,54 @@ def get_clients(
         raise ValueError(f"Unsupported Deep Researcher framework: {deeprs_framework}")
 
     return openai_client, deeprs_client
+
+
+async def get_response_from_llm(
+    msg: str,
+    client,
+    model,
+    system_message,
+    msg_history=None,
+    response_format=None,
+    retry=10,
+):
+    if msg_history is None:
+        msg_history = []
+
+    new_msg_history = msg_history + [{"role": "user", "content": msg}]
+    for attempt in range(retry):
+        try:
+            completion = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_message},
+                    *new_msg_history,
+                ],
+                response_format=response_format,
+            )
+            if response_format is None:
+                output = completion.choices[0].message["content"]
+            else:
+                annotation_response = completion.choices[0].message
+                output = annotation_response.parsed
+                if output is None:
+                    raise ValueError("Failed to parse the model output.")
+
+            new_msg_history = new_msg_history + [
+                {"role": "assistant", "content": output}
+            ]
+            return output, new_msg_history
+
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(15 * (attempt + 1))  # Wait before retrying
+
+    if response_format is not None and response_format != NOT_GIVEN:
+        output = response_format()
+    else:
+        output = ""
+    new_msg_history = new_msg_history + [{"role": "assistant", "content": output}]
+    return output, new_msg_history
 
 
 async def generate_research_questions(client, model_name, topic: str):
@@ -203,7 +281,7 @@ async def perform_deep_research(
                     f"Starting deep research for question: {research_question}"
                 )
                 logging.info("-" * 20)
-                logging.info("Final Report:", final_report)
+                logging.info(f"Final Report: {final_report}")
                 logging.info("=" * 20)
                 return final_report
     else:
