@@ -11,8 +11,9 @@ from utils import (
     terminate_servers,
     get_clients,
     get_model_configs,
-    generate_research_questions,
     perform_deep_research,
+    process_generated_data,
+    add_dataset_info,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -29,9 +30,10 @@ async def collect_data(
     num_reflections: int = 3,
     skip_novelty_check: bool = False,
     paper_search_engine: str = "semanticscholar",
+    data_dir: str = "./data",
 ):
-    base_dir = "data/topics/{topic}"
-    result_dir = f"data/round_{round_idx}"
+    base_dir = os.path.join(data_dir, "topics/{topic}")
+    result_dir = os.path.join(data_dir, f"round_{round_idx}")
     os.makedirs(result_dir, exist_ok=True)
     n_questions_per_topic = n_questions // len(topics)
 
@@ -88,26 +90,31 @@ async def collect_data(
 
 
 def main(args):
-    # Initialize Servers
-    server_pids = initialize_servers(
-        vllm_port=args.vllm_port,
-        middleware_port=args.middleware_port,
-        deeprs_port=args.deeprs_port,
-        deeprs_framework=args.deeprs_framework,
-        model_path=args.model_path,
-    )
-
-    # Get Clients
-    vllm_client, deeprs_client = get_clients(
-        vllm_port=args.vllm_port,
-        deeprs_port=args.deeprs_port,
-        deeprs_framework=args.deeprs_framework,
-    )
-    model_configs = get_model_configs(args.model_path)
-
-    # Collect Data
-    logging.info("Starting data collection...")
     for round_idx in range(args.n_rounds):
+        # Create round directory
+        round_dir = os.path.join(args.data_dir, f"round_{round_idx}")
+        os.makedirs(round_dir, exist_ok=True)
+
+        # Initialize Servers
+        server_pids = initialize_servers(
+            vllm_port=args.vllm_port,
+            middleware_port=args.middleware_port,
+            deeprs_port=args.deeprs_port,
+            deeprs_framework=args.deeprs_framework,
+            model_path=args.model_path,
+            log_dir=round_dir,
+        )
+
+        # Get Clients
+        vllm_client, deeprs_client = get_clients(
+            vllm_port=args.vllm_port,
+            deeprs_port=args.deeprs_port,
+            deeprs_framework=args.deeprs_framework,
+        )
+        model_configs = get_model_configs(args.model_path)
+
+        # Collect Data
+        logging.info("Starting data collection...")
         logging.info(f"Starting round {round_idx + 1}/{args.n_rounds}...")
         final_reports = asyncio.run(
             collect_data(
@@ -121,11 +128,26 @@ def main(args):
                 num_reflections=args.num_reflections,
                 skip_novelty_check=args.skip_novelty_check,
                 paper_search_engine=args.paper_search_engine,
+                data_dir=args.data_dir,
             )
         )
 
-    # Terminate Servers
-    terminate_servers(server_pids)
+        # Terminate Inference Servers
+        terminate_servers(server_pids)
+
+        # Process generated conversations in to trainable data
+        process_generated_data(
+            data_file=os.path.join(round_dir, "conversations.jsonl"),
+            final_reports=final_reports,
+            save_path=os.path.join(round_dir, f"round_{round_idx}.json"),
+        )
+
+        # Add dataset into dataset_info.json
+        dataset_info_path = os.path.join(args.data_dir, "dataset_info.json")
+        round_dataset_name = add_dataset_info(
+            dataset_info_path=dataset_info_path,
+            data_path=f"round_{round_idx}/round_{round_idx}.json",
+        )
 
 
 if __name__ == "__main__":
@@ -155,6 +177,12 @@ if __name__ == "__main__":
         default="open_deep_research",
         help="Framework for Deep Researcher",
         choices=["open_deep_research"],
+    )
+    parser.add_argument(
+        "--data_dir",
+        type=str,
+        default="./data",
+        help="Directory for data storage",
     )
     parser.add_argument(
         "--n_rounds",

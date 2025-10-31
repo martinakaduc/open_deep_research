@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import time
@@ -5,7 +6,7 @@ import psutil
 import requests
 import subprocess
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 from openai._types import NOT_GIVEN
 
 logging.basicConfig(level=logging.INFO)
@@ -72,6 +73,7 @@ def initialize_servers(
     deeprs_port: int,
     deeprs_framework: str = "open_deep_research",
     middleware_workers: int = 1,
+    log_dir: str = "./logs",
 ) -> Dict[str, Any]:
     model_configs = get_model_configs(model_path)
 
@@ -99,7 +101,9 @@ def initialize_servers(
             f"python wrapper_server.py "
             f"--port {middleware_port} "
             f"--vllm-url http://localhost:{vllm_port}/v1 "
-            f"--workers {middleware_workers} &"
+            f"--workers {middleware_workers} "
+            f"--log-dir {log_dir} "
+            "--log-file conversations.jsonl &"
         )
     )
 
@@ -123,7 +127,7 @@ def initialize_servers(
                 f'COMPRESSION_MODEL_PROVIDER="openai" '
                 f'FINAL_REPORT_MODEL_BASE_URL="http://localhost:{middleware_port}/v1" '
                 f'FINAL_REPORT_MODEL_PROVIDER="openai" '
-                f'uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --allow-blocking &'
+                f'uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --port {deeprs_port} --allow-blocking &'
             )
         )
     else:
@@ -286,3 +290,53 @@ async def perform_deep_research(
                 return final_report
     else:
         raise ValueError(f"Unsupported Deep Researcher framework: {deeprs_framework}")
+
+
+def process_generated_data(data_file: str, final_reports: List[str], save_path: str):
+    conversations = []
+    with open(data_file, "r") as f:
+        for line in f:
+            if line.strip() == "":
+                continue
+            conversations.append(json.loads(line))
+
+    # Process conversations
+    training_data = []
+    for conversation in conversations:
+        messages = conversation["messages"]
+        response = conversation["response"]["choices"][0]["message"]["content"]
+        messages.append({"role": "assistant", "content": response})
+        training_data.append({"messages": messages})
+
+    # Save processed data
+    with open(save_path, "w") as f:
+        json.dump(training_data, f, indent=2)
+    logging.info(f"Processed data saved to {save_path}")
+
+
+def add_dataset_info(dataset_info_path: str, data_path: str):
+    dataset_info = {}
+    if os.path.exists(dataset_info_path):
+        with open(dataset_info_path, "r") as f:
+            dataset_info = json.load(f)
+
+    new_dataset_info = {
+        "file_name": data_path,
+        "formatting": "sharegpt",
+        "columns": {"messages": "messages"},
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant",
+            "system_tag": "system",
+        },
+    }
+    dataset_name = os.path.dirname(data_path)
+
+    dataset_info[dataset_name] = new_dataset_info
+    with open(dataset_info_path, "w") as f:
+        json.dump(dataset_info, f, indent=2)
+    logging.info(f"Dataset info updated at {dataset_info_path}")
+
+    return dataset_name
