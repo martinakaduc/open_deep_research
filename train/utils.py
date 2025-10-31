@@ -13,14 +13,26 @@ from openai._types import NOT_GIVEN
 logging.basicConfig(level=logging.INFO)
 
 
-def run_server(cmd_string):
+def run_server(cmd_string, cwd=None, env_vars=None):
+    env = os.environ.copy()
+    if env_vars:
+        env.update(env_vars)
+
     try:
         if platform.system() == "Windows":
             return subprocess.Popen(
-                cmd_string, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+                cmd_string.split(),
+                cwd=cwd,
+                env=env,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
             )
         else:
-            return subprocess.Popen(cmd_string, preexec_fn=os.setsid)
+            return subprocess.Popen(
+                cmd_string.split(),
+                cwd=cwd,
+                env=env,
+                preexec_fn=os.setsid,
+            )
     except Exception as e:
         print(f"Error starting server: {e}")
         return None
@@ -89,7 +101,7 @@ def initialize_servers(
             f"--max-model-len {model_configs['max_model_len']} "
             f"--tensor-parallel-size {model_configs['tensor_parallel_size']} "
             f"--enable-auto-tool-choice "
-            f"--tool-call-parser {model_configs['tool_call_parser']} &"
+            f"--tool-call-parser {model_configs['tool_call_parser']}"
         )
     )
 
@@ -104,7 +116,7 @@ def initialize_servers(
             f"--vllm-url http://localhost:{vllm_port}/v1 "
             f"--workers {middleware_workers} "
             f"--log-dir {log_dir} "
-            "--log-file conversations.jsonl &"
+            "--log-file conversations.jsonl"
         )
     )
 
@@ -115,21 +127,24 @@ def initialize_servers(
     if deeprs_framework == "open_deep_research":
         deeprs_pid = run_server(
             (
-                "cd .. && "
-                f'SUMMARIZATION_MODEL="{model_configs['model_name']}" '
-                f'RESEARCH_MODEL="{model_configs['model_name']}" '
-                f'COMPRESSION_MODEL="{model_configs['model_name']}" '
-                f'FINAL_REPORT_MODEL="{model_configs['model_name']}" '
-                f'SUMMARIZATION_MODEL_BASE_URL="http://localhost:{middleware_port}/v1" '
-                f'SUMMARIZATION_MODEL_PROVIDER="openai" '
-                f'RESEARCH_MODEL_BASE_URL="http://localhost:{middleware_port}/v1" '
-                f'RESEARCH_MODEL_PROVIDER="openai" '
-                f'COMPRESSION_MODEL_BASE_URL="http://localhost:{middleware_port}/v1" '
-                f'COMPRESSION_MODEL_PROVIDER="openai" '
-                f'FINAL_REPORT_MODEL_BASE_URL="http://localhost:{middleware_port}/v1" '
-                f'FINAL_REPORT_MODEL_PROVIDER="openai" '
-                f'uvx --refresh --from "langgraph-cli[inmem]" --with-editable . --python 3.11 langgraph dev --port {deeprs_port} --allow-blocking &'
-            )
+                "uvx --refresh --from langgraph-cli[inmem] --with-editable . "
+                f"--python 3.11 langgraph dev --port {deeprs_port} --allow-blocking"
+            ),
+            cwd=os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+            env_vars={
+                "SUMMARIZATION_MODEL": model_configs["model_name"],
+                "RESEARCH_MODEL": model_configs["model_name"],
+                "COMPRESSION_MODEL": model_configs["model_name"],
+                "FINAL_REPORT_MODEL": model_configs["model_name"],
+                "SUMMARIZATION_MODEL_BASE_URL": f"http://localhost:{middleware_port}/v1",
+                "SUMMARIZATION_MODEL_PROVIDER": "openai",
+                "RESEARCH_MODEL_BASE_URL": f"http://localhost:{middleware_port}/v1",
+                "RESEARCH_MODEL_PROVIDER": "openai",
+                "COMPRESSION_MODEL_BASE_URL": f"http://localhost:{middleware_port}/v1",
+                "COMPRESSION_MODEL_PROVIDER": "openai",
+                "FINAL_REPORT_MODEL_BASE_URL": f"http://localhost:{middleware_port}/v1",
+                "FINAL_REPORT_MODEL_PROVIDER": "openai",
+            },
         )
     else:
         raise ValueError(f"Unsupported Deep Researcher framework: {deeprs_framework}")
@@ -335,6 +350,8 @@ def add_dataset_info(dataset_info_path: str, data_path: str):
     }
     dataset_name = os.path.dirname(data_path)
 
+    if dataset_name in dataset_info:
+        del dataset_info[dataset_name]
     dataset_info[dataset_name] = new_dataset_info
     with open(dataset_info_path, "w") as f:
         json.dump(dataset_info, f, indent=2)
