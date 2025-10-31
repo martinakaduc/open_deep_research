@@ -60,6 +60,7 @@ If there is nothing to improve, simply repeat the previous JSON EXACTLY."""
 async def generate_ideas(
     base_dir,
     result_dir,
+    result_file,
     client,
     model,
     skip_generation=False,
@@ -69,7 +70,7 @@ async def generate_ideas(
     if skip_generation:
         # Load existing ideas from file
         try:
-            with open(osp.join(result_dir, "ideas.json"), "r") as f:
+            with open(osp.join(result_dir, result_file), "r") as f:
                 ideas = json.load(f)
             print("Loaded existing ideas:")
             for idea in ideas:
@@ -151,7 +152,7 @@ async def generate_ideas(
     for idea_str in idea_str_archive:
         ideas.append(json.loads(idea_str))
 
-    with open(osp.join(result_dir, "ideas.json"), "w") as f:
+    with open(osp.join(result_dir, result_file), "w") as f:
         json.dump(ideas, f, indent=4)
 
     return ideas
@@ -161,6 +162,7 @@ async def generate_ideas(
 async def generate_next_idea(
     base_dir,
     result_dir,
+    result_file,
     client,
     model,
     prev_idea_archive=[],
@@ -243,7 +245,7 @@ async def generate_next_idea(
                 continue
 
     ## SAVE IDEAS
-    with open(osp.join(result_dir, "ideas.json"), "w") as f:
+    with open(osp.join(result_dir, result_file), "w") as f:
         json.dump(idea_archive, f, indent=4)
 
     return idea_archive
@@ -397,6 +399,7 @@ async def check_idea_novelty(
     ideas,
     base_dir,
     result_dir,
+    result_file,
     client,
     model,
     max_num_iterations=10,
@@ -474,7 +477,7 @@ async def check_idea_novelty(
         idea["novel"] = novel
 
     # Save results to JSON file
-    results_file = osp.join(result_dir, "ideas.json")
+    results_file = osp.join(result_dir, result_file)
     with open(results_file, "w") as f:
         json.dump(ideas, f, indent=4)
 

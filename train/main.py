@@ -41,12 +41,13 @@ async def collect_data(
     for topic in topics:
         topic_ideas = []
         topic_base_dir = base_dir.format(topic=topic)
+        topic_result_file = f"ideas_{topic}.json"
         # Load previous ideas if not the first round
         n_prev_ideas = 0
         if round_idx > 0:
             pre_result_dir = f"data/round_{round_idx - 1}"
             prev_idea_archive = []
-            with open(os.path.join(pre_result_dir, "ideas.json"), "r") as f:
+            with open(os.path.join(pre_result_dir, topic_result_file), "r") as f:
                 seed_ideas = json.load(f)
             for seed_idea in seed_ideas:
                 prev_idea_archive.append(json.dumps(seed_idea))
@@ -58,6 +59,7 @@ async def collect_data(
             topic_ideas = await generate_next_idea(
                 base_dir=topic_base_dir,
                 result_dir=result_dir,
+                result_file=topic_result_file,
                 client=vllm_client,
                 model=model_name,
                 prev_idea_archive=topic_ideas,
@@ -68,6 +70,7 @@ async def collect_data(
             topic_ideas = await check_idea_novelty(
                 ideas=topic_ideas,
                 base_dir=topic_base_dir,
+                result_file=topic_result_file,
                 result_dir=result_dir,
                 client=vllm_client,
                 model=model_name,
