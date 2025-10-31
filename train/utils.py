@@ -6,6 +6,7 @@ import psutil
 import requests
 import subprocess
 import logging
+import signal, platform
 from typing import Any, Dict, List
 from openai._types import NOT_GIVEN
 
@@ -14,23 +15,23 @@ logging.basicConfig(level=logging.INFO)
 
 def run_server(cmd_string):
     try:
-        server_process = subprocess.Popen(cmd_string, shell=True)
-        return server_process
+        if platform.system() == "Windows":
+            return subprocess.Popen(
+                cmd_string, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            )
+        else:
+            return subprocess.Popen(cmd_string, preexec_fn=os.setsid)
     except Exception as e:
         print(f"Error starting server: {e}")
         return None
 
 
-def kill(proc_pid):
-    process = psutil.Process(proc_pid)
-    for proc in process.children(recursive=True):
-        proc.kill()
-    process.kill()
-
-
 def shutdown_server(process):
     try:
-        kill(process.pid)
+        if platform.system() == "Windows":
+            process.send_signal(signal.CTRL_BREAK_EVENT)
+        else:
+            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
         print("Server shutdown successfully.")
     except Exception as e:
         print(f"Error shutting down server: {e}")
