@@ -6,6 +6,7 @@ import asyncio
 import logging
 import json
 from generate_ideas import generate_next_idea, check_idea_novelty
+from grpo import run_grpo_training, export_grpo_model
 from utils import (
     initialize_servers,
     terminate_servers,
@@ -93,19 +94,26 @@ async def collect_data(
 
 
 def main(args):
+    # Get model path
+    model_path = args.model_path
+
+    # Start improvement rounds
     for round_idx in range(args.n_rounds):
+        logging.info(f"=== Starting Improvement Round {round_idx + 1} ===")
+
         # Create round directory
-        round_dir = os.path.join(args.data_dir, f"round_{round_idx}")
-        os.makedirs(round_dir, exist_ok=True)
+        data_dir = os.path.join(args.data_dir, f"round_{round_idx}")
+        os.makedirs(data_dir, exist_ok=True)
 
         # Initialize Servers
+        model_configs = get_model_configs(model_path)
         server_pids = initialize_servers(
             vllm_port=args.vllm_port,
             middleware_port=args.middleware_port,
             deeprs_port=args.deeprs_port,
             deeprs_framework=args.deeprs_framework,
-            model_path=args.model_path,
-            log_dir=round_dir,
+            model_configs=model_configs,
+            log_dir=data_dir,
         )
 
         # Get Clients
@@ -114,7 +122,6 @@ def main(args):
             deeprs_port=args.deeprs_port,
             deeprs_framework=args.deeprs_framework,
         )
-        model_configs = get_model_configs(args.model_path)
 
         # Collect Data
         logging.info("Starting data collection...")
@@ -140,22 +147,47 @@ def main(args):
 
         # Process generated conversations in to trainable data
         process_generated_data(
-            data_file=os.path.join(round_dir, "conversations.jsonl"),
+            data_file=os.path.join(data_dir, "conversations.jsonl"),
             final_reports=final_reports,
-            save_path=os.path.join(round_dir, f"round_{round_idx}.json"),
+            save_path=os.path.join(data_dir, f"round_{round_idx}.json"),
+            tokenizer_name=model_configs["model_path"],
         )
 
-        # Add dataset into dataset_info.json
-        dataset_info_path = os.path.join(args.data_dir, "dataset_info.json")
-        round_dataset_name = add_dataset_info(
-            dataset_info_path=dataset_info_path,
-            data_path=f"round_{round_idx}/round_{round_idx}.json",
+        # Run GRPO training
+        logging.info("Starting GRPO training...")
+        model_save_path = os.path.join(args.save_dir, f"round_{round_idx}")
+        ckpt_path = os.path.join(model_save_path, "ckpts")
+        os.makedirs(ckpt_path, exist_ok=True)
+
+        run_grpo_training(
+            model_path=model_configs["model_path"],
+            reward_model_path=args.reward_model_path,
+            save_path=model_save_path,
+            ckpt_path=ckpt_path,
+            data_path=data_dir,
+            batch_size=8,
+            rollout_batch_size=4,
+            max_epochs=3,
+            num_gpus=1,
         )
+
+        # Export model
+        export_grpo_model(
+            model_path=model_path,
+            lora_path=model_save_path,
+            output_path=model_save_path,
+        )
+
+        # Update model path for next round
+        model_path = model_save_path
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_path", type=str, help="Path to the model file")
+    parser.add_argument(
+        "--reward_model_path", type=str, help="Path to the reward model file"
+    )
     parser.add_argument(
         "--vllm_port",
         type=int,
@@ -186,6 +218,12 @@ if __name__ == "__main__":
         type=str,
         default="./data",
         help="Directory for data storage",
+    )
+    parser.add_argument(
+        "--save_dir",
+        type=str,
+        default="./saves",
+        help="Directory for model checkpoints",
     )
     parser.add_argument(
         "--n_rounds",

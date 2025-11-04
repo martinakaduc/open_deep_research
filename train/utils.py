@@ -7,7 +7,7 @@ import requests
 import subprocess
 import logging
 import signal, platform
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from openai._types import NOT_GIVEN
 
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +52,7 @@ def shutdown_server(process):
 def get_model_configs(model_path: str):
     if model_path == "Qwen/Qwen2.5-Omni-7B":
         return {
+            "model_path": model_path,
             "model_name": "vllm:qwen-2.5-omni-7b",
             "max_model_len": 32768,
             "tensor_parallel_size": 1,
@@ -80,7 +81,7 @@ def check_health(url):
 
 
 def initialize_servers(
-    model_path: str,
+    model_configs: Dict[str, Any],
     vllm_port: int,
     middleware_port: int,
     deeprs_port: int,
@@ -88,14 +89,12 @@ def initialize_servers(
     middleware_workers: int = 1,
     log_dir: str = "./logs",
 ) -> Dict[str, Any]:
-    model_configs = get_model_configs(model_path)
-
     # Start vLLM Server
     logging.info("Starting vLLM server...")
     vllm_pid = None
     vllm_pid = run_server(
         (
-            f"vllm serve {model_path} "
+            f"vllm serve {model_configs['model_path']} "
             f"--served-model-name {model_configs['model_name']} "
             f"--port {vllm_port} "
             f"--max-model-len {model_configs['max_model_len']} "
@@ -308,7 +307,12 @@ async def perform_deep_research(
         raise ValueError(f"Unsupported Deep Researcher framework: {deeprs_framework}")
 
 
-def process_generated_data(data_file: str, final_reports: List[str], save_path: str):
+def process_generated_data(
+    data_file: str,
+    final_reports: List[str],
+    save_path: str,
+    tokenizer_name: Optional[str] = None,
+):
     conversations = []
     with open(data_file, "r") as f:
         for line in f:
@@ -324,9 +328,40 @@ def process_generated_data(data_file: str, final_reports: List[str], save_path: 
         messages.append({"role": "assistant", "content": response})
         training_data.append({"messages": messages})
 
-    # Save processed data
-    with open(save_path, "w") as f:
-        json.dump(training_data, f, indent=2)
+    if tokenizer_name is not None:
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+
+        # Tokenization check (optional)
+        queries = []
+        responses = []
+        for data in training_data:
+            query = tokenizer.apply_chat_template(
+                data["messages"][:-1], tokenize=False, add_generation_prompt=True
+            )
+            response = data["messages"][-1]["content"] + tokenizer.eos_token
+
+            queries.append(query)
+            responses.append(response)
+
+        training_data = {
+            "query": queries,
+            "response": responses,
+        }
+
+        # Save processed data
+        csv_path = save_path.replace(".json", ".csv")
+        import pandas as pd
+
+        df = pd.DataFrame(training_data)
+        df.to_csv(csv_path, index=False)
+
+    else:
+        # Save processed data
+        with open(save_path, "w") as f:
+            json.dump(training_data, f, indent=2)
+
     logging.info(f"Processed data saved to {save_path}")
 
 
