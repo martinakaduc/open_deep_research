@@ -5,6 +5,8 @@ import argparse
 import asyncio
 import logging
 import json
+
+import torch
 from generate_ideas import generate_next_idea, check_idea_novelty
 from grpo import run_grpo_training, export_grpo_model
 from utils import (
@@ -17,7 +19,11 @@ from utils import (
     add_dataset_info,
 )
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s - %(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 async def collect_data(
@@ -96,6 +102,7 @@ async def collect_data(
 def main(args):
     # Get model path
     model_path = args.model_path
+    num_gpus = torch.cuda.device_count()
 
     # Start improvement rounds
     for round_idx in range(args.n_rounds):
@@ -106,7 +113,7 @@ def main(args):
         os.makedirs(data_dir, exist_ok=True)
 
         # Initialize Servers
-        model_configs = get_model_configs(model_path)
+        model_configs = get_model_configs(model_path, num_gpus=num_gpus)
         server_pids = initialize_servers(
             vllm_port=args.vllm_port,
             middleware_port=args.middleware_port,
@@ -146,10 +153,12 @@ def main(args):
         terminate_servers(server_pids)
 
         # Process generated conversations in to trainable data
+        data_path = os.path.join(data_dir, "train")
+        os.makedirs(data_path, exist_ok=True)
         process_generated_data(
             data_file=os.path.join(data_dir, "conversations.jsonl"),
             final_reports=final_reports,
-            save_path=os.path.join(data_dir, f"round_{round_idx}.json"),
+            save_path=os.path.join(data_path, "data.json"),
             tokenizer_name=model_configs["model_path"],
         )
 
@@ -164,11 +173,11 @@ def main(args):
             reward_model_path=args.reward_model_path,
             save_path=model_save_path,
             ckpt_path=ckpt_path,
-            data_path=data_dir,
+            data_path=os.path.join(data_dir, "train"),
             batch_size=8,
             rollout_batch_size=4,
             max_epochs=3,
-            num_gpus=1,
+            num_gpus=num_gpus,
         )
 
         # Export model

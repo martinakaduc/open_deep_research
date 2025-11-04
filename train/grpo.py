@@ -1,24 +1,27 @@
 import os
+import time
+import logging
 from utils import run_server, shutdown_server
 
 # launch the master node of ray in container
 RAY_MASTER_CMD = (
-    "ray start --head --node-ip-address 0.0.0.0 --num-gpus {num_gpus} --port 6379"
+    "ray start --head --disable-usage-stats "
+    "--object-spilling-directory=/data/martin/openrlhf "
+    "--node-ip-address 0.0.0.0 --port 6377 --num-gpus {num_gpus}"
 )
 
 GRPO_CMD = (
     "ray job submit --address='http://127.0.0.1:8265' "
-    '--runtime-env-json=\'{ "working_dir": "/openrlhf" }\' '
     "-- python3 -m openrlhf.cli.train_ppo_ray "
     "--ref_num_nodes 1 "
-    "--ref_num_gpus_per_node 1 "
+    "--ref_num_gpus_per_node {num_gpus} "
     "--reward_num_nodes 1 "
-    "--reward_num_gpus_per_node 1 "
+    "--reward_num_gpus_per_node {num_gpus} "
     "--critic_num_nodes 1 "
-    "--critic_num_gpus_per_node 1 "
+    "--critic_num_gpus_per_node {num_gpus} "
     "--actor_num_nodes 1 "
-    "--actor_num_gpus_per_node 1 "
-    "--vllm_num_engines 4 "
+    "--actor_num_gpus_per_node {num_gpus} "
+    "--vllm_num_engines {num_gpus} "
     "--vllm_tensor_parallel_size 1 "
     "--colocate_all_models "
     "--vllm_gpu_memory_utilization 0.5 "
@@ -28,18 +31,18 @@ GRPO_CMD = (
     "--ckpt_path {ckpt_path} "
     "--save_hf_ckpt "
     "--micro_train_batch_size {batch_size} "
-    "--train_batch_size 128 "
+    "--train_batch_size 32 "
     "--micro_rollout_batch_size {rollout_batch_size} "
-    "--rollout_batch_size 1024 "
-    "--n_samples_per_prompt 1 "
+    "--rollout_batch_size 32 "
+    "--n_samples_per_prompt 4 "
     "--max_epochs {max_epochs} "
-    "--prompt_max_len 1024 "
+    "--prompt_max_len 8192 "
     "--max_samples 100000 "
-    "--generate_max_len 1024 "
+    "--generate_max_len 4096 "
     "--zero_stage 3 "
     "--bf16 "
-    "--actor_learning_rate 5e-7 "
-    "--critic_learning_rate 9e-6 "
+    "--actor_learning_rate 1e-4 "
+    "--critic_learning_rate 1e-5 "
     "--init_kl_coef 0.01 "
     "--prompt_data {data_path} "
     "--input_key query "
@@ -54,15 +57,15 @@ GRPO_CMD = (
     "--advantage_estimator group_norm "
     "--lora_rank 16 "
     "--lora_alpha 32 "
-    "--target_modules ['q_proj', 'k_proj', 'v_proj'] "
+    "--target_modules q_proj v_proj "
 )
 
 EXPORT_CMD = (
-    "python3 -m openrlhf.cli.export_hf_model "
+    "python -m openrlhf.cli.lora_combiner "
     "--model_path {model_path} "
     "--lora_path {lora_path} "
     "--output_path {output_path} "
-    "--bf16 "
+    "--bf16"
 )
 
 # Enable wandb logging
@@ -91,7 +94,8 @@ def run_grpo_training(
     max_epochs: int,
     num_gpus: int,
 ):
-    ray_pid = run_server(RAY_MASTER_CMD.format(num_gpus=num_gpus))
+    os.system(RAY_MASTER_CMD.format(num_gpus=num_gpus))
+    time.sleep(10)  # wait for ray to be ready
 
     grpo_command = GRPO_CMD.format(
         model_path=model_path,
@@ -102,14 +106,15 @@ def run_grpo_training(
         rollout_batch_size=rollout_batch_size,
         max_epochs=max_epochs,
         data_path=data_path,
+        num_gpus=num_gpus,
     )
 
-    print("Running GRPO training with command:")
-    print(grpo_command)
+    logging.info("Running GRPO training with command:")
+    logging.info(grpo_command)
     os.system(grpo_command)
 
-    print("GRPO training completed.")
-    shutdown_server(ray_pid)
+    logging.info("GRPO training completed.")
+    os.system("ray stop")
 
 
 def export_grpo_model(
@@ -123,8 +128,8 @@ def export_grpo_model(
         output_path=output_path,
     )
 
-    print("Exporting GRPO model with command:")
-    print(export_command)
+    logging.info("Exporting GRPO model with command:")
+    logging.info(export_command)
     os.system(export_command)
 
-    print("Model export completed.")
+    logging.info("Model export completed.")
