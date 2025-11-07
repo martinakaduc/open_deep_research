@@ -50,7 +50,15 @@ def shutdown_server(process):
 
 
 def get_model_configs(model_path: str, num_gpus: int = 1) -> Dict[str, Any]:
-    if model_path == "Qwen/Qwen2.5-Omni-7B":
+    if model_path == "Qwen/Qwen2.5-7B-Instruct":
+        return {
+            "model_path": model_path,
+            "model_name": "vllm:qwen-2.5-7b-instruct",
+            "max_model_len": 32768,
+            "tensor_parallel_size": num_gpus,
+            "tool_call_parser": "hermes",
+        }
+    elif model_path == "Qwen/Qwen2.5-Omni-7B":
         return {
             "model_path": model_path,
             "model_name": "vllm:qwen-2.5-omni-7b",

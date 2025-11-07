@@ -825,6 +825,7 @@ def _check_gemini_token_limit(exception: Exception, error_str: str) -> bool:
 MODEL_TOKEN_LIMITS = {
     "vllm:llama-3.1-8b-instruct": 128000,
     "vllm:qwen-2.5-omni-7b": 128000,
+    "vllm:qwen-2.5-7b-instruct": 128000,
     "vllm:granite-3.1-8b-instruct": 128000,
     "vllm:deeprs-model": 128000,
     "openai:gpt-4.1-mini": 1047576,
