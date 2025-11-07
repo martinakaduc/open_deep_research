@@ -6,6 +6,7 @@ uvicorn[standard]>=0.24.0
 
 # HTTP client
 httpx>=0.24.0
+backoff==2.2.1
 
 # Data validation
 pydantic>=2.0.0
@@ -19,3 +20,6 @@ vllm>=0.10.2
 
 # LLM Related Utilities
 langgraph-sdk==0.2.9
+
+# OpenRLHF library
+openrlhf @ git+https://github.com/martinakaduc/OpenRLHF.git@main
