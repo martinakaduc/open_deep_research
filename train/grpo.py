@@ -6,7 +6,7 @@ from utils import run_server, shutdown_server
 # launch the master node of ray in container
 RAY_MASTER_CMD = (
     "ray start --head --disable-usage-stats "
-    "--object-spilling-directory=/data/martin/openrlhf "
+    "--object-spilling-directory={cache_dir} "
     "--node-ip-address 0.0.0.0 --port 6377 --num-gpus {num_gpus}"
 )
 
@@ -36,19 +36,18 @@ GRPO_CMD = (
     "--rollout_batch_size 32 "
     "--n_samples_per_prompt 4 "
     "--max_epochs {max_epochs} "
-    "--prompt_max_len 8192 "
+    "--prompt_max_len 16384 "
     "--max_samples 100000 "
-    "--generate_max_len 4096 "
+    "--generate_max_len 8192 "
     "--zero_stage 3 "
     "--bf16 "
     "--actor_learning_rate 1e-4 "
     "--critic_learning_rate 1e-5 "
-    "--init_kl_coef 0.01 "
+    "--init_kl_coef 0.0 "
     "--prompt_data {data_path} "
     "--input_key query "
     "--label_key response "
     "--normalize_reward "
-    "--gradient_checkpointing "
     "--packing_samples "
     "--vllm_sync_backend nccl "
     "--enforce_eager "
@@ -94,7 +93,13 @@ def run_grpo_training(
     max_epochs: int,
     num_gpus: int,
 ):
-    os.system(RAY_MASTER_CMD.format(num_gpus=num_gpus))
+    ray_cache_dir = os.getenv("RAY_CACHE_DIR", "")
+    if ray_cache_dir == "":
+        raise ValueError("RAY_CACHE_DIR environment variable is not set.")
+    os.makedirs(ray_cache_dir, exist_ok=True)
+
+    logging.info("Starting Ray master node...")
+    os.system(RAY_MASTER_CMD.format(num_gpus=num_gpus, cache_dir=ray_cache_dir))
     time.sleep(10)  # wait for ray to be ready
 
     grpo_command = GRPO_CMD.format(

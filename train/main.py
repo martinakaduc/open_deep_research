@@ -100,9 +100,12 @@ async def collect_data(
 
 
 def main(args):
-    # Get model path
-    model_path = args.model_path
+    # Setting GPU
     num_gpus = torch.cuda.device_count()
+    logging.info(f"Using {num_gpus} GPUs for training.")
+    
+    # Get model config
+    model_configs = get_model_configs(args.model_path, num_gpus=num_gpus)
 
     # Start improvement rounds
     for round_idx in range(args.n_rounds):
@@ -113,7 +116,6 @@ def main(args):
         os.makedirs(data_dir, exist_ok=True)
 
         # Initialize Servers
-        model_configs = get_model_configs(model_path, num_gpus=num_gpus)
         server_pids = initialize_servers(
             vllm_port=args.vllm_port,
             middleware_port=args.middleware_port,
@@ -174,21 +176,21 @@ def main(args):
             save_path=model_save_path,
             ckpt_path=ckpt_path,
             data_path=os.path.join(data_dir, "train"),
-            batch_size=8,
-            rollout_batch_size=4,
-            max_epochs=3,
+            batch_size=args.batch_size,
+            rollout_batch_size=args.batch_size,
+            max_epochs=args.n_epochs,
             num_gpus=num_gpus,
         )
 
         # Export model
         export_grpo_model(
-            model_path=model_path,
+            model_path=model_configs["model_path"],
             lora_path=model_save_path,
             output_path=model_save_path,
         )
 
         # Update model path for next round
-        model_path = model_save_path
+        model_configs["model_path"] = model_save_path
 
 
 if __name__ == "__main__":
@@ -270,6 +272,18 @@ if __name__ == "__main__":
         default="semanticscholar",
         help="Paper search engine to use for novelty check",
         choices=["semanticscholar", "openalex"],
+    )
+    parser.add_argument(
+        "--n_epochs",
+        type=int,
+        default=3,
+        help="Number of epochs for GRPO training",
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=1,
+        help="Batch size for training the LLM",
     )
     args = parser.parse_args()
     main(args)

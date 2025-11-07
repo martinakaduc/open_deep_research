@@ -66,18 +66,18 @@ def get_model_configs(model_path: str, num_gpus: int = 1) -> Dict[str, Any]:
             "tensor_parallel_size": num_gpus,
             "tool_call_parser": "hermes",
         }
+    elif model_path == "Qwen/Qwen3-4B-Instruct-2507":
+        return {
+            "model_path": model_path,
+            "model_name": "vllm:qwen-3-4b-instruct-2507",
+            "max_model_len": 32768,
+            "tensor_parallel_size": num_gpus,
+            "tool_call_parser": "hermes",
+        }
     elif model_path == "ibm-granite/granite-3.1-8b-instruct":
         return {
             "model_path": model_path,
             "model_name": "vllm:granite-3.1-8b-instruct",
-            "max_model_len": 32768,
-            "tensor_parallel_size": num_gpus,
-            "tool_call_parser": "granite",
-        }
-    elif model_path.startswith("./saves/"):
-        return {
-            "model_path": model_path,
-            "model_name": f"vllm:deeprs-model",
             "max_model_len": 32768,
             "tensor_parallel_size": num_gpus,
             "tool_call_parser": "granite",
